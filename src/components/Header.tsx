@@ -13,8 +13,8 @@ export const Header = () => {
             </div>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">DeepSeek AI</h1>
-            <p className="text-sm text-deepseek-gray-300">Advanced AI Development Console</p>
+            <h1 className="text-2xl font-bold text-white">The G-Spot</h1>
+            <p className="text-sm text-deepseek-gray-300">Great Spot for AI Development • Created by SPHAh</p>
           </div>
         </div>
         

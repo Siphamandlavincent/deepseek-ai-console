@@ -140,19 +140,30 @@ Instructions:
       if (typeof window !== 'undefined' && (window as any).puter) {
         const puter = (window as any).puter;
         
-        // For images, include them in the analysis
-        const imageFiles = uploadedFiles.filter(f => f.type.startsWith('image/'));
-        if (imageFiles.length > 0) {
-          // Use the first image for vision analysis
-          const response = await puter.ai.chat(fullPrompt, imageFiles[0].content);
-          setResponse(response);
-        } else {
-          // Text-only analysis
-          const response = await puter.ai.chat(fullPrompt);
-          setResponse(response);
+        try {
+          // For images, include them in the analysis
+          const imageFiles = uploadedFiles.filter(f => f.type.startsWith('image/'));
+          let aiResponse;
+          
+          if (imageFiles.length > 0) {
+            // Use the first image for vision analysis
+            aiResponse = await puter.ai.chat(fullPrompt, imageFiles[0].content);
+          } else {
+            // Text-only analysis
+            aiResponse = await puter.ai.chat(fullPrompt);
+          }
+          
+          // Convert response to string if it's an object
+          const responseText = typeof aiResponse === 'string' ? aiResponse : 
+                              aiResponse?.message || aiResponse?.text || 
+                              JSON.stringify(aiResponse, null, 2);
+          
+          setResponse(responseText);
+          toast.success("Document analysis completed");
+        } catch (error) {
+          console.error("Puter AI error:", error);
+          throw error;
         }
-        
-        toast.success("Document analysis completed");
       } else {
         // Fallback simulation
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -292,9 +303,9 @@ Instructions:
           </label>
           <div className="bg-deepseek-dark rounded p-4 flex-1 border border-deepseek-gray-700 overflow-auto">
             {response ? (
-              <pre className="whitespace-pre-wrap text-white font-mono text-sm">
+              <div className="whitespace-pre-wrap text-white font-mono text-sm">
                 {response}
-              </pre>
+              </div>
             ) : (
               <div className="text-deepseek-gray-500 italic">
                 Upload documents and ask a question to see analysis results...

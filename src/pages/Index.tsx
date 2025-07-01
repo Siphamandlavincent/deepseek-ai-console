@@ -1,11 +1,52 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from "react";
+import { Header } from "@/components/Header";
+import { Navigation } from "@/components/Navigation";
+import { ChatInterface } from "@/components/ChatInterface";
+import { ImageGenerator } from "@/components/ImageGenerator";
+import { VisionAnalyzer } from "@/components/VisionAnalyzer";
+import { StatusPanel } from "@/components/StatusPanel";
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState("chat");
+  const [currentModel, setCurrentModel] = useState("gpt-4o");
+  const [systemStatus, setSystemStatus] = useState("Online");
+
+  const renderActiveComponent = () => {
+    switch (activeTab) {
+      case "chat":
+        return <ChatInterface currentModel={currentModel} setCurrentModel={setCurrentModel} />;
+      case "image":
+        return <ImageGenerator />;
+      case "vision":
+        return <VisionAnalyzer />;
+      default:
+        return <ChatInterface currentModel={currentModel} setCurrentModel={setCurrentModel} />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-deepseek-dark font-inter text-white">
+      <div className="flex flex-col h-screen">
+        <Header />
+        
+        <div className="flex flex-1 overflow-hidden">
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col">
+            <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+            
+            <main className="flex-1 p-6 overflow-auto">
+              {renderActiveComponent()}
+            </main>
+          </div>
+          
+          {/* Status Panel Sidebar */}
+          <StatusPanel 
+            currentModel={currentModel} 
+            systemStatus={systemStatus}
+            setSystemStatus={setSystemStatus}
+          />
+        </div>
       </div>
     </div>
   );

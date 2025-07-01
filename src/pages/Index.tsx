@@ -5,6 +5,7 @@ import { Navigation } from "@/components/Navigation";
 import { ChatInterface } from "@/components/ChatInterface";
 import { ImageGenerator } from "@/components/ImageGenerator";
 import { VisionAnalyzer } from "@/components/VisionAnalyzer";
+import { DocumentAnalyzer } from "@/components/DocumentAnalyzer";
 import { StatusPanel } from "@/components/StatusPanel";
 
 const Index = () => {
@@ -20,6 +21,8 @@ const Index = () => {
         return <ImageGenerator />;
       case "vision":
         return <VisionAnalyzer />;
+      case "documents":
+        return <DocumentAnalyzer />;
       default:
         return <ChatInterface currentModel={currentModel} setCurrentModel={setCurrentModel} />;
     }

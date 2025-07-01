@@ -1,5 +1,5 @@
 
-import { MessageSquare, Image, Eye } from "lucide-react";
+import { MessageSquare, Image, Eye, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavigationProps {
@@ -12,6 +12,7 @@ export const Navigation = ({ activeTab, setActiveTab }: NavigationProps) => {
     { id: "chat", label: "AI Chat", icon: MessageSquare },
     { id: "image", label: "Image Gen", icon: Image },
     { id: "vision", label: "Vision", icon: Eye },
+    { id: "documents", label: "Documents", icon: FileText },
   ];
 
   return (

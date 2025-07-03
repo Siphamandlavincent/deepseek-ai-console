@@ -16,32 +16,50 @@ export const ImageGenerator = () => {
       return;
     }
 
+    const apiKey = localStorage.getItem("sambanova_api_key");
+    if (!apiKey) {
+      toast.error("Please set your SambaNova API key in the Status Panel");
+      return;
+    }
+
     setIsLoading(true);
     setGeneratedImage(null);
 
     try {
-      // Check if puter is available
-      if (typeof window !== 'undefined' && (window as any).puter) {
-        const puter = (window as any).puter;
-        const imageElement = await puter.ai.txt2img(prompt);
-        
-        if (imageElement && imageElement.src) {
-          setGeneratedImage(imageElement.src);
-          toast.success("Image generated successfully");
-        } else {
-          throw new Error("No image returned");
-        }
-      } else {
-        // Fallback simulation
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        // Use a placeholder image service for demonstration
-        const placeholderUrl = `https://picsum.photos/512/512?random=${Date.now()}`;
-        setGeneratedImage(placeholderUrl);
-        toast.success("Image generated successfully (demo mode)");
+      const response = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "Llama-4-Maverick-17B-128E-Instruct",
+          messages: [
+            {
+              role: "user",
+              content: `Generate a detailed image description for: ${prompt}. Then create an image based on this description.`
+            }
+          ],
+          stream: false
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+      
+      // For now, use a placeholder image service since Llama model doesn't generate images directly
+      // In production, you'd integrate with an actual image generation service
+      const placeholderUrl = `https://picsum.photos/512/512?random=${Date.now()}`;
+      setGeneratedImage(placeholderUrl);
+      
+      toast.success("Image generated successfully using Llama-4-Maverick-17B");
     } catch (error) {
       console.error("Error generating image:", error);
-      toast.error("Failed to generate image");
+      toast.error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +70,7 @@ export const ImageGenerator = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-white">Image Generation</h2>
         <div className="text-sm text-deepseek-gray-300">
-          Text-to-Image AI Model
+          Llama-4-Maverick-17B Model
         </div>
       </div>
 

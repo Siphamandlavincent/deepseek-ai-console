@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { FileText, Upload, Loader2, X, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -26,7 +25,6 @@ export const DocumentAnalyzer = () => {
     const files = event.target.files;
     if (!files) return;
 
-    // Check if adding these files would exceed the 3 file limit
     if (uploadedFiles.length + files.length > 3) {
       toast.error("Maximum 3 files allowed");
       return;
@@ -35,13 +33,11 @@ export const DocumentAnalyzer = () => {
     setIsUploading(true);
 
     for (const file of Array.from(files)) {
-      // Check file size (500MB max)
       if (file.size > 500 * 1024 * 1024) {
         toast.error(`${file.name} exceeds 500MB limit`);
         continue;
       }
 
-      // Check file type
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
         toast.error(`${file.name} is not a supported file type`);
@@ -52,10 +48,8 @@ export const DocumentAnalyzer = () => {
         let content = "";
         
         if (file.type === 'application/pdf') {
-          // For PDFs, we'll store the file reference and process it when needed
           content = "PDF content will be analyzed when questioned";
         } else if (file.type.startsWith('image/')) {
-          // For images, create a data URL
           content = await new Promise<string>((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target?.result as string);
@@ -81,7 +75,6 @@ export const DocumentAnalyzer = () => {
     }
 
     setIsUploading(false);
-    // Reset the input
     event.target.value = '';
   };
 
@@ -109,11 +102,16 @@ export const DocumentAnalyzer = () => {
       return;
     }
 
+    const apiKey = localStorage.getItem("sambanova_api_key");
+    if (!apiKey) {
+      toast.error("Please set your SambaNova API key in the Status Panel");
+      return;
+    }
+
     setIsAnalyzing(true);
     setResponse("");
 
     try {
-      // Create a comprehensive prompt that includes document context
       let documentContext = "Based on the following uploaded documents:\n\n";
       
       uploadedFiles.forEach((file, index) => {
@@ -136,50 +134,84 @@ Instructions:
 3. If the documents don't contain sufficient information, clearly state this and then provide an answer based on general knowledge
 4. Always indicate whether your answer comes from the uploaded documents or general knowledge`;
 
-      // Check if puter is available
-      if (typeof window !== 'undefined' && (window as any).puter) {
-        const puter = (window as any).puter;
-        
-        try {
-          // For images, include them in the analysis
-          const imageFiles = uploadedFiles.filter(f => f.type.startsWith('image/'));
-          let aiResponse;
-          
-          if (imageFiles.length > 0) {
-            // Use the first image for vision analysis
-            aiResponse = await puter.ai.chat(fullPrompt, imageFiles[0].content);
-          } else {
-            // Text-only analysis
-            aiResponse = await puter.ai.chat(fullPrompt);
+      // Create content array for the API call
+      const messageContent: any[] = [
+        {
+          type: "text",
+          text: fullPrompt
+        }
+      ];
+
+      // Add images to the content if any
+      const imageFiles = uploadedFiles.filter(f => f.type.startsWith('image/'));
+      imageFiles.forEach(file => {
+        messageContent.push({
+          type: "image_url",
+          image_url: {
+            url: file.content
           }
-          
-          // Convert response to string if it's an object
-          const responseText = typeof aiResponse === 'string' ? aiResponse : 
-                              aiResponse?.message || aiResponse?.text || 
-                              JSON.stringify(aiResponse, null, 2);
-          
-          setResponse(responseText);
-          toast.success("Document analysis completed");
-        } catch (error) {
-          console.error("Puter AI error:", error);
-          throw error;
-        }
-      } else {
-        // Fallback simulation
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const simulatedResponse = `Document Analysis Results:\n\nAnalyzing ${uploadedFiles.length} uploaded file(s):\n${uploadedFiles.map(f => `- ${f.name}`).join('\n')}\n\nQuestion: "${question}"\n\nThis is a simulated document analysis response. In the full implementation, this would:\n\n1. Extract and analyze text content from PDFs\n2. Perform OCR on images to extract text\n3. Search through all document content for relevant information\n4. Provide answers based on the uploaded documents first\n5. Fall back to general knowledge if documents don't contain the answer\n\nThe system would indicate whether the answer comes from your uploaded documents or general AI knowledge.`;
-        
-        // Simulate streaming response
-        for (let i = 0; i < simulatedResponse.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 20));
-          setResponse(simulatedResponse.slice(0, i + 1));
-        }
-        
-        toast.success("Document analysis completed (demo mode)");
+        });
+      });
+
+      const response = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "Llama-4-Maverick-17B-128E-Instruct",
+          messages: [
+            {
+              role: "user",
+              content: messageContent
+            }
+          ],
+          stream: true
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
       }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Failed to get response reader");
+      }
+
+      let responseText = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                responseText += content;
+                setResponse(responseText);
+              }
+            } catch (e) {
+              // Skip invalid JSON lines
+            }
+          }
+        }
+      }
+      
+      toast.success("Document analysis completed using Llama-4-Maverick-17B");
     } catch (error) {
       console.error("Error analyzing documents:", error);
-      toast.error("Failed to analyze documents");
+      toast.error(`Failed to analyze documents: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setResponse("Error: Failed to analyze documents. Please try again.");
     } finally {
       setIsAnalyzing(false);
@@ -191,7 +223,7 @@ Instructions:
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-white">Document Analysis</h2>
         <div className="text-sm text-deepseek-gray-300">
-          AI-Powered Document Understanding
+          Llama-4-Maverick-17B Model
         </div>
       </div>
 
@@ -230,7 +262,6 @@ Instructions:
               </div>
             </div>
 
-            {/* Uploaded Files List */}
             {uploadedFiles.length > 0 && (
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-deepseek-gray-300">
@@ -303,7 +334,7 @@ Instructions:
           </label>
           <div className="bg-deepseek-dark rounded p-4 flex-1 border border-deepseek-gray-700 overflow-auto">
             {response ? (
-              <div className="whitespace-pre-wrap text-white font-mono text-sm">
+              <div className="whitespace-pre-wrap text-white text-sm">
                 {response}
               </div>
             ) : (

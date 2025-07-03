@@ -12,6 +12,17 @@ export const VisionAnalyzer = () => {
   const [analysis, setAnalysis] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const convertImageToBase64 = async (imageUrl: string): Promise<string> => {
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
   const handleAnalyze = async () => {
     if (!imageUrl.trim()) {
       toast.error("Please enter an image URL");
@@ -23,32 +34,89 @@ export const VisionAnalyzer = () => {
       return;
     }
 
+    const apiKey = localStorage.getItem("sambanova_api_key");
+    if (!apiKey) {
+      toast.error("Please set your SambaNova API key in the Status Panel");
+      return;
+    }
+
     setIsLoading(true);
     setAnalysis("");
 
     try {
-      // Check if puter is available
-      if (typeof window !== 'undefined' && (window as any).puter) {
-        const puter = (window as any).puter;
-        const response = await puter.ai.chat(prompt, imageUrl);
-        setAnalysis(response);
-        toast.success("Image analysis completed");
-      } else {
-        // Fallback simulation
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const simulatedAnalysis = `DeepSeek Vision Analysis:\n\nAnalyzing image from: ${imageUrl}\n\nQuestion: "${prompt}"\n\nThis is a simulated vision analysis response. In the full implementation, this would use advanced computer vision AI models to analyze the provided image and answer your specific questions about its contents, composition, objects, people, text, and other visual elements.\n\nThe system would provide detailed descriptions, identify objects and people, read text, analyze artistic elements, and answer complex questions about the visual content.`;
-        
-        // Simulate streaming response
-        for (let i = 0; i < simulatedAnalysis.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 20));
-          setAnalysis(simulatedAnalysis.slice(0, i + 1));
-        }
-        
-        toast.success("Image analysis completed (demo mode)");
+      // Convert image URL to base64
+      const base64Image = await convertImageToBase64(imageUrl);
+
+      const response = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "Llama-4-Maverick-17B-128E-Instruct",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: prompt
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: base64Image
+                  }
+                }
+              ]
+            }
+          ],
+          stream: true
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
       }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Failed to get response reader");
+      }
+
+      let analysisText = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                analysisText += content;
+                setAnalysis(analysisText);
+              }
+            } catch (e) {
+              // Skip invalid JSON lines
+            }
+          }
+        }
+      }
+
+      toast.success("Image analysis completed using Llama-4-Maverick-17B");
     } catch (error) {
       console.error("Error analyzing image:", error);
-      toast.error("Failed to analyze image");
+      toast.error(`Failed to analyze image: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setAnalysis("Error: Failed to analyze image. Please check the image URL and try again.");
     } finally {
       setIsLoading(false);
@@ -60,7 +128,7 @@ export const VisionAnalyzer = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-white">Vision Analysis</h2>
         <div className="text-sm text-deepseek-gray-300">
-          AI-Powered Image Understanding
+          Llama-4-Maverick-17B Model
         </div>
       </div>
 
@@ -150,9 +218,9 @@ export const VisionAnalyzer = () => {
             </label>
             <div className="bg-deepseek-dark rounded p-4 min-h-[200px] border border-deepseek-gray-700 overflow-auto">
               {analysis ? (
-                <pre className="whitespace-pre-wrap text-white font-mono text-sm">
+                <div className="whitespace-pre-wrap text-white text-sm">
                   {analysis}
-                </pre>
+                </div>
               ) : (
                 <div className="text-deepseek-gray-500 italic">
                   Analysis results will appear here...

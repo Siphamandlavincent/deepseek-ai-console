@@ -1,5 +1,5 @@
 
-import { Activity, Zap } from "lucide-react";
+import { Activity } from "lucide-react";
 
 export const Header = () => {
   return (
@@ -7,9 +7,17 @@ export const Header = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="relative">
-            <Zap className="h-8 w-8 text-deepseek-electric animate-glow" />
-            <div className="absolute inset-0 h-8 w-8 text-deepseek-electric opacity-20 animate-pulse">
-              <Zap className="h-8 w-8" />
+            <img 
+              src="https://i.postimg.cc/pX7F0BW0/Spha-Apps-Logo.png" 
+              alt="SPHAh Logo" 
+              className="h-8 w-8 object-contain animate-glow"
+            />
+            <div className="absolute inset-0 h-8 w-8 opacity-20 animate-pulse">
+              <img 
+                src="https://i.postimg.cc/pX7F0BW0/Spha-Apps-Logo.png" 
+                alt="SPHAh Logo" 
+                className="h-8 w-8 object-contain"
+              />
             </div>
           </div>
           <div>

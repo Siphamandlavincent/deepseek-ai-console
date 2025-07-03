@@ -1,8 +1,8 @@
-
 import { useState } from "react";
 import { Activity, Cpu, Zap, RefreshCw, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { ApiKeyManager } from "./ApiKeyManager";
 
 interface StatusPanelProps {
   currentModel: string;
@@ -90,6 +90,8 @@ export const StatusPanel = ({ currentModel, systemStatus, setSystemStatus }: Sta
           )}
         </Button>
       </div>
+
+      <ApiKeyManager />
 
       <div className="bg-deepseek-gray-800 rounded-lg p-4 border border-deepseek-gray-600">
         <h4 className="text-sm font-medium text-white mb-3 flex items-center">

@@ -124,9 +124,15 @@ export const StatusPanel = ({ currentModel, systemStatus, setSystemStatus }: Sta
             { name: "O3-Mini", status: "Online" },
             { name: "Claude Sonnet", status: "Online" },
             { name: "Gemini Pro", status: "Online" },
+            { name: "Llama-4-Maverick-17B", status: "Online", specialty: "Vision & Docs" },
           ].map((model) => (
             <div key={model.name} className="flex items-center justify-between">
-              <span className="text-deepseek-gray-300">{model.name}</span>
+              <div className="flex flex-col">
+                <span className="text-deepseek-gray-300">{model.name}</span>
+                {model.specialty && (
+                  <span className="text-deepseek-electric text-xs">{model.specialty}</span>
+                )}
+              </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span className="text-green-400">{model.status}</span>

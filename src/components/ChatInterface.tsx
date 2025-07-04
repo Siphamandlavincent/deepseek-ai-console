@@ -17,6 +17,7 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
   const [isLoading, setIsLoading] = useState(false);
 
   const models = [
+    { value: "Llama-4-Maverick-17B-128E-Instruct", label: "Llama-4-Maverick-17B (SambaNova)" },
     { value: "gpt-4o", label: "GPT-4o (Advanced)" },
     { value: "o3-mini", label: "O3-Mini (Fast)" },
     { value: "claude-sonnet", label: "Claude Sonnet" },
@@ -29,38 +30,76 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
       return;
     }
 
+    const apiKey = localStorage.getItem("sambanova_api_key");
+    if (!apiKey) {
+      toast.error("Please set your SambaNova API key in the Status Panel");
+      return;
+    }
+
     setIsLoading(true);
     setResponse("");
 
     try {
-      // Check if puter is available
-      if (typeof window !== 'undefined' && (window as any).puter) {
-        const puter = (window as any).puter;
+      const response = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "Llama-4-Maverick-17B-128E-Instruct",
+          messages: [
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          stream: true
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Failed to get response reader");
+      }
+
+      let fullResponse = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n');
         
-        // Stream the response
-        const stream = await puter.ai.chat(prompt, { model: currentModel, stream: true });
-        
-        for await (const part of stream) {
-          if (part?.text) {
-            setResponse(prev => prev + part.text);
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                fullResponse += content;
+                setResponse(fullResponse);
+              }
+            } catch (e) {
+              // Skip invalid JSON lines
+            }
           }
         }
-      } else {
-        // Fallback simulation if puter is not available
-        const simulatedResponse = `DeepSeek AI Response (${currentModel}):\n\nI understand you're looking for assistance with: "${prompt}"\n\nThis is a simulated response as the Puter.js library is being loaded. In the full implementation, this would connect to real AI models for advanced text generation, analysis, and conversation.`;
-        
-        // Simulate streaming
-        for (let i = 0; i < simulatedResponse.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 10));
-          setResponse(simulatedResponse.slice(0, i + 1));
-        }
       }
-      
+
       toast.success("Response generated successfully");
     } catch (error) {
       console.error("Error generating response:", error);
-      toast.error("Failed to generate response");
-      setResponse("Error: Failed to generate response. Please try again.");
+      toast.error(`Failed to generate response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setResponse("Error: Failed to generate response. Please check your API key and try again.");
     } finally {
       setIsLoading(false);
     }

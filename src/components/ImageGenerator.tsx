@@ -16,47 +16,24 @@ export const ImageGenerator = () => {
       return;
     }
 
-    const apiKey = localStorage.getItem("sambanova_api_key");
-    if (!apiKey) {
-      toast.error("Please set your SambaNova API key in the Status Panel");
-      return;
-    }
-
     setIsLoading(true);
     setGeneratedImage(null);
 
     try {
-      const response = await fetch("https://api.sambanova.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "Llama-4-Maverick-17B-128E-Instruct",
-          messages: [
-            {
-              role: "user",
-              content: `Generate a detailed image description for: ${prompt}. Then create an image based on this description.`
-            }
-          ],
-          stream: false
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // Use Pollinations AI for free image generation
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Math.floor(Math.random() * 1000000)}`;
       
-      // For now, use a placeholder image service since Llama model doesn't generate images directly
-      // In production, you'd integrate with an actual image generation service
-      const placeholderUrl = `https://picsum.photos/512/512?random=${Date.now()}`;
-      setGeneratedImage(placeholderUrl);
+      // Test if the image loads successfully
+      const img = new Image();
+      img.onload = () => {
+        setGeneratedImage(imageUrl);
+        toast.success("Image generated successfully");
+      };
+      img.onerror = () => {
+        throw new Error("Failed to generate image");
+      };
+      img.src = imageUrl;
       
-      toast.success("Image generated successfully using Llama-4-Maverick-17B");
     } catch (error) {
       console.error("Error generating image:", error);
       toast.error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -70,7 +47,7 @@ export const ImageGenerator = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-white">Image Generation</h2>
         <div className="text-sm text-deepseek-gray-300">
-          Llama-4-Maverick-17B Model
+          Pollinations AI Model
         </div>
       </div>
 
@@ -84,7 +61,7 @@ export const ImageGenerator = () => {
             <Input
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="A futuristic AI laboratory with glowing screens..."
+              placeholder="A red sports car on a mountain road..."
               className="bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500 h-12"
               disabled={isLoading}
             />

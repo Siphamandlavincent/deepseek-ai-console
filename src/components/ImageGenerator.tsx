@@ -1,14 +1,15 @@
-
 import { useState } from "react";
-import { Image as ImageIcon, Loader2, Download } from "lucide-react";
+import { Image as ImageIcon, Loader2, Download, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { ImageEditor } from "./ImageEditor";
 
 export const ImageGenerator = () => {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -117,15 +118,26 @@ export const ImageGenerator = () => {
               Generated Image:
             </label>
             {generatedImage && (
-              <Button
-                onClick={handleDownload}
-                variant="outline"
-                size="sm"
-                className="bg-deepseek-gray-700 border-deepseek-gray-600 text-white hover:bg-deepseek-gray-600"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download PNG
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setShowEditor(true)}
+                  variant="outline"
+                  size="sm"
+                  className="bg-deepseek-gray-700 border-deepseek-gray-600 text-white hover:bg-deepseek-gray-600"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
+                  onClick={handleDownload}
+                  variant="outline"
+                  size="sm"
+                  className="bg-deepseek-gray-700 border-deepseek-gray-600 text-white hover:bg-deepseek-gray-600"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PNG
+                </Button>
+              </div>
             )}
           </div>
           
@@ -150,6 +162,14 @@ export const ImageGenerator = () => {
           </div>
         </div>
       </div>
+
+      {/* Image Editor Modal */}
+      {showEditor && generatedImage && (
+        <ImageEditor
+          imageUrl={generatedImage}
+          onClose={() => setShowEditor(false)}
+        />
+      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Image as ImageIcon, Loader2 } from "lucide-react";
+import { Image as ImageIcon, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -39,6 +39,27 @@ export const ImageGenerator = () => {
       toast.error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!generatedImage) return;
+
+    try {
+      const response = await fetch(generatedImage);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `generated-image-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Image downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      toast.error("Failed to download image");
     }
   };
 
@@ -91,9 +112,22 @@ export const ImageGenerator = () => {
 
         {/* Output Section */}
         <div className="bg-deepseek-gray-800 rounded-lg p-6 border border-deepseek-gray-600">
-          <label className="block text-sm font-medium text-deepseek-gray-300 mb-4">
-            Generated Image:
-          </label>
+          <div className="flex items-center justify-between mb-4">
+            <label className="block text-sm font-medium text-deepseek-gray-300">
+              Generated Image:
+            </label>
+            {generatedImage && (
+              <Button
+                onClick={handleDownload}
+                variant="outline"
+                size="sm"
+                className="bg-deepseek-gray-700 border-deepseek-gray-600 text-white hover:bg-deepseek-gray-600"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PNG
+              </Button>
+            )}
+          </div>
           
           <div className="bg-deepseek-dark rounded-lg border border-deepseek-gray-700 aspect-square flex items-center justify-center overflow-hidden">
             {isLoading ? (

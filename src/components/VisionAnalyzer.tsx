@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Eye, Loader2, Link } from "lucide-react";
+import { Eye, Loader2, Link, Upload, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,21 +11,60 @@ export const VisionAnalyzer = () => {
   const [prompt, setPrompt] = useState("What do you see in this image?");
   const [analysis, setAnalysis] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
-  const convertImageToBase64 = async (imageUrl: string): Promise<string> => {
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+  const convertImageToBase64 = async (source: string | File): Promise<string> => {
+    if (typeof source === 'string') {
+      // Check if it's a Facebook URL and warn user
+      if (source.includes('facebook.com') || source.includes('fb.com')) {
+        throw new Error("Facebook images cannot be accessed directly due to privacy restrictions. Please save the image to your device and upload it instead.");
+      }
+      
+      try {
+        const response = await fetch(source);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        if (error instanceof TypeError && error.message.includes('NetworkError')) {
+          throw new Error("Cannot access this image due to CORS restrictions. Please save the image to your device and upload it instead.");
+        }
+        throw error;
+      }
+    } else {
+      // Handle file upload
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(source);
+      });
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error("Please select a valid image file");
+        return;
+      }
+      setImageFile(file);
+      setImageUrl(""); // Clear URL when file is selected
+      toast.success("Image uploaded successfully");
+    }
   };
 
   const handleAnalyze = async () => {
-    if (!imageUrl.trim()) {
-      toast.error("Please enter an image URL");
+    if (!imageUrl.trim() && !imageFile) {
+      toast.error("Please enter an image URL or upload an image file");
       return;
     }
 
@@ -44,8 +83,8 @@ export const VisionAnalyzer = () => {
     setAnalysis("");
 
     try {
-      // Convert image URL to base64
-      const base64Image = await convertImageToBase64(imageUrl);
+      // Convert image to base64
+      const base64Image = await convertImageToBase64(imageFile || imageUrl);
 
       const response = await fetch("https://api.sambanova.ai/v1/chat/completions", {
         method: "POST",
@@ -117,11 +156,13 @@ export const VisionAnalyzer = () => {
     } catch (error) {
       console.error("Error analyzing image:", error);
       toast.error(`Failed to analyze image: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setAnalysis("Error: Failed to analyze image. Please check the image URL and try again.");
+      setAnalysis("Error: Failed to analyze image. Please check the image source and try again.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  const currentImageSource = imageFile ? URL.createObjectURL(imageFile) : imageUrl;
 
   return (
     <div className="h-full flex flex-col space-y-6">
@@ -136,17 +177,52 @@ export const VisionAnalyzer = () => {
         {/* Input Section */}
         <div className="space-y-4">
           <div className="bg-deepseek-gray-800 rounded-lg p-6 border border-deepseek-gray-600 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-deepseek-gray-300 mb-2">
-                Image URL:
+            {/* Image Source Options */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-deepseek-gray-300">
+                Choose Image Source:
               </label>
-              <Input
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className="bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500"
-                disabled={isLoading}
-              />
+              
+              {/* URL Input */}
+              <div>
+                <Input
+                  value={imageUrl}
+                  onChange={(e) => {
+                    setImageUrl(e.target.value);
+                    if (e.target.value) setImageFile(null);
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                  className="bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500"
+                  disabled={isLoading || !!imageFile}
+                />
+              </div>
+              
+              {/* File Upload */}
+              <div className="text-center">
+                <span className="text-sm text-deepseek-gray-400">or</span>
+              </div>
+              
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  disabled={isLoading || !!imageUrl}
+                  className="hidden"
+                  id="image-upload"
+                />
+                <label
+                  htmlFor="image-upload"
+                  className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                    imageUrl || isLoading 
+                      ? 'border-deepseek-gray-600 text-deepseek-gray-500 cursor-not-allowed' 
+                      : 'border-deepseek-gray-500 text-deepseek-gray-300 hover:border-deepseek-electric hover:text-deepseek-electric'
+                  }`}
+                >
+                  <Upload className="h-5 w-5 mr-2" />
+                  {imageFile ? imageFile.name : 'Upload Image File'}
+                </label>
+              </div>
             </div>
             
             <div>
@@ -162,6 +238,17 @@ export const VisionAnalyzer = () => {
               />
             </div>
             
+            {/* Warning for Facebook URLs */}
+            {imageUrl.includes('facebook.com') || imageUrl.includes('fb.com') ? (
+              <div className="flex items-start space-x-2 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-yellow-300">
+                  <strong>Note:</strong> Facebook images cannot be accessed directly due to privacy restrictions. 
+                  Please save the image to your device and upload it using the file upload option above.
+                </div>
+              </div>
+            ) : null}
+            
             <div className="text-xs text-deepseek-gray-400">
               <div className="flex items-center space-x-1 mb-1">
                 <Link className="h-3 w-3" />
@@ -173,7 +260,7 @@ export const VisionAnalyzer = () => {
           
           <Button
             onClick={handleAnalyze}
-            disabled={isLoading || !imageUrl.trim() || !prompt.trim()}
+            disabled={isLoading || (!imageUrl.trim() && !imageFile) || !prompt.trim()}
             className="w-full bg-gradient-to-r from-deepseek-blue to-deepseek-cyan hover:from-deepseek-cyan hover:to-deepseek-blue text-white font-medium h-12"
           >
             {isLoading ? (
@@ -193,14 +280,14 @@ export const VisionAnalyzer = () => {
         {/* Output Section */}
         <div className="flex flex-col space-y-4">
           {/* Image Preview */}
-          {imageUrl && (
+          {currentImageSource && (
             <div className="bg-deepseek-gray-800 rounded-lg p-4 border border-deepseek-gray-600">
               <label className="block text-sm font-medium text-deepseek-gray-300 mb-2">
                 Image Preview:
               </label>
               <div className="bg-deepseek-dark rounded border border-deepseek-gray-700 aspect-video flex items-center justify-center overflow-hidden">
                 <img 
-                  src={imageUrl} 
+                  src={currentImageSource} 
                   alt="Image to analyze" 
                   className="max-w-full max-h-full object-contain"
                   onError={(e) => {

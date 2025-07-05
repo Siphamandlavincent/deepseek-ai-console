@@ -180,8 +180,8 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
                   className="w-48 h-48 object-cover rounded-xl shadow-2xl border-2 border-deepseek-gray-600 transition-all duration-300 group-hover:scale-105 group-hover:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
                 />
                 
-                {/* LED Eye Light Effect - positioned over the robot's eye */}
-                <div className="absolute top-[60px] left-[110px] w-2 h-2 rounded-full animate-[colorPulse_3s_ease-in-out_infinite] shadow-[0_0_8px_currentColor] z-10"></div>
+                {/* LED Eye Light Effect - positioned over the robot's other eye */}
+                <div className="absolute top-[60px] left-[85px] w-2 h-2 rounded-full animate-[colorPulse_3s_ease-in-out_infinite] shadow-[0_0_8px_currentColor] z-10"></div>
                 
                 {/* Glowing effect on hover */}
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-deepseek-cyan/20 to-deepseek-electric/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

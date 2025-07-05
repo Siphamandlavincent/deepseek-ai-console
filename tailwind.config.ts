@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -111,13 +110,48 @@ export default {
 				glow: {
 					'0%, 100%': { opacity: '1', transform: 'scale(1)' },
 					'50%': { opacity: '0.8', transform: 'scale(1.05)' }
+				},
+				colorPulse: {
+					'0%': { 
+						backgroundColor: '#ef4444',
+						boxShadow: '0 0 8px #ef4444'
+					},
+					'14%': { 
+						backgroundColor: '#f97316',
+						boxShadow: '0 0 8px #f97316'
+					},
+					'28%': { 
+						backgroundColor: '#eab308',
+						boxShadow: '0 0 8px #eab308'
+					},
+					'42%': { 
+						backgroundColor: '#22c55e',
+						boxShadow: '0 0 8px #22c55e'
+					},
+					'57%': { 
+						backgroundColor: '#06b6d4',
+						boxShadow: '0 0 8px #06b6d4'
+					},
+					'71%': { 
+						backgroundColor: '#3b82f6',
+						boxShadow: '0 0 8px #3b82f6'
+					},
+					'85%': { 
+						backgroundColor: '#8b5cf6',
+						boxShadow: '0 0 8px #8b5cf6'
+					},
+					'100%': { 
+						backgroundColor: '#ef4444',
+						boxShadow: '0 0 8px #ef4444'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-				'glow': 'glow 2s ease-in-out infinite alternate'
+				'glow': 'glow 2s ease-in-out infinite alternate',
+				'colorPulse': 'colorPulse 3s ease-in-out infinite'
 			}
 		}
 	},

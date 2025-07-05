@@ -1,4 +1,5 @@
 
+
 import { useState } from "react";
 import { Scissors, Eraser, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,9 +45,7 @@ function resizeImageIfNeeded(canvas: HTMLCanvasElement, ctx: CanvasRenderingCont
 const removeBackground = async (imageElement: HTMLImageElement): Promise<Blob> => {
   try {
     console.log('Starting background removal process...');
-    const segmenter = await pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', {
-      device: 'webgpu',
-    });
+    const segmenter = await pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512');
     
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -266,3 +265,4 @@ export const ImageEditor = ({ imageUrl, onClose }: ImageEditorProps) => {
     </div>
   );
 };
+

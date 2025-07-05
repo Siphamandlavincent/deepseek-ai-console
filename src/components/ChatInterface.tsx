@@ -134,7 +134,7 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Ask me anything..."
-              className="min-h-[300px] bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500 font-mono"
+              className="min-h-[200px] bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500 font-mono"
               disabled={isLoading}
             />
           </div>
@@ -156,6 +156,15 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
               </>
             )}
           </Button>
+
+          {/* AI Image */}
+          <div className="flex justify-center">
+            <img 
+              src="https://i.postimg.cc/02SJZjQ7/AI-IMAGE.webp" 
+              alt="AI Image" 
+              className="w-64 h-64 object-cover rounded-lg shadow-lg border border-deepseek-gray-600"
+            />
+          </div>
         </div>
 
         {/* Output Section */}

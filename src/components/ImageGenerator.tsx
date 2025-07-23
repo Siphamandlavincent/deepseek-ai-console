@@ -149,10 +149,13 @@ export const ImageGenerator = () => {
       const imageData = subjectCtx.getImageData(0, 0, subjectCanvas.width, subjectCanvas.height);
       const data = imageData.data;
 
-      // Apply mask to make background transparent
+      // Apply mask to make background transparent with a threshold for cleaner separation
       const mask = result[0].mask;
+      const threshold = 0.5; // Adjust this value for cleaner separation
       for (let i = 0; i < mask.data.length; i++) {
-        const alpha = Math.round((1 - mask.data[i]) * 255);
+        // Create binary mask: either fully opaque (subject) or fully transparent (background)
+        const maskValue = mask.data[i];
+        const alpha = maskValue > threshold ? 255 : 0; // Binary threshold
         data[i * 4 + 3] = alpha;
       }
 

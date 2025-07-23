@@ -149,14 +149,18 @@ export const ImageGenerator = () => {
       const imageData = subjectCtx.getImageData(0, 0, subjectCanvas.width, subjectCanvas.height);
       const data = imageData.data;
 
-      // Apply mask to make background transparent with a threshold for cleaner separation
+      // Apply mask with smoothed edges to reduce glitchy appearance
       const mask = result[0].mask;
-      const threshold = 0.5; // Adjust this value for cleaner separation
       for (let i = 0; i < mask.data.length; i++) {
-        // Create binary mask: either fully opaque (subject) or fully transparent (background)
+        // Use smooth alpha values with slight threshold adjustment
         const maskValue = mask.data[i];
-        const alpha = maskValue > threshold ? 255 : 0; // Binary threshold
-        data[i * 4 + 3] = alpha;
+        let alpha = (1 - maskValue) * 255;
+        
+        // Apply slight threshold to clean up edges while maintaining smoothness
+        if (alpha < 50) alpha = 0; // Remove weak background pixels
+        else if (alpha > 200) alpha = 255; // Ensure subject is fully opaque
+        
+        data[i * 4 + 3] = Math.round(alpha);
       }
 
       subjectCtx.putImageData(imageData, 0, 0);

@@ -93,7 +93,7 @@ export const ImageGenerator = () => {
     try {
       // Load the segmentation model
       const segmenter = await pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', {
-        device: 'webgpu',
+        device: 'wasm',
       });
 
       // Create image element from uploaded image

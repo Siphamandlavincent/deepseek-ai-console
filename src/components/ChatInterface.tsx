@@ -16,7 +16,7 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
   const [prompt, setPrompt] = useState("");
   const [responses, setResponses] = useState<Record<string, { content: string; isLoading: boolean; error: string | null }>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModels, setSelectedModels] = useState<string[]>([currentModel]);
+  const [selectedModels, setSelectedModels] = useState<string[]>(["Llama-4-Maverick-17B-128E-Instruct"]);
   const [viewMode, setViewMode] = useState<'single' | 'comparison'>('single');
 
   const models = [
@@ -31,7 +31,11 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
     if (checked) {
       setSelectedModels(prev => [...prev, modelValue]);
     } else {
-      setSelectedModels(prev => prev.filter(m => m !== modelValue));
+      setSelectedModels(prev => {
+        const newSelection = prev.filter(m => m !== modelValue);
+        // Ensure at least one model is always selected
+        return newSelection.length > 0 ? newSelection : prev;
+      });
     }
   };
 
@@ -198,11 +202,14 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
             </div>
           ))}
         </div>
+        <div className="mt-3 text-xs text-deepseek-gray-400">
+          Selected: {selectedModels.length} model{selectedModels.length > 1 ? 's' : ''}
+        </div>
       </div>
 
-      <div className={`flex-1 ${viewMode === 'comparison' ? 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3' : 'grid grid-cols-2'} gap-6 min-h-0`}>
+      <div className={`flex-1 ${viewMode === 'comparison' ? 'grid grid-cols-1' : 'grid grid-cols-2'} gap-6 min-h-0`}>
         {/* Input Section */}
-        <div className={`flex flex-col space-y-4 ${viewMode === 'comparison' ? 'lg:col-span-2 xl:col-span-3' : ''}`}>
+        <div className={`flex flex-col space-y-4 ${viewMode === 'comparison' ? '' : ''}`}>
           <div className="bg-deepseek-gray-800 rounded-lg p-4 border border-deepseek-gray-600">
             <label className="block text-sm font-medium text-deepseek-gray-300 mb-2">
               Enter your prompt:
@@ -233,50 +240,6 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
               </>
             )}
           </Button>
-
-          {/* AI Image - Blended with App Design */}
-          <div className="relative bg-deepseek-gray-800 rounded-lg p-4 border border-deepseek-gray-600 overflow-hidden">
-            {/* Gradient overlay to blend with app colors */}
-            <div className="absolute inset-0 bg-gradient-to-br from-deepseek-blue/20 via-deepseek-cyan/10 to-deepseek-electric/20 rounded-lg"></div>
-            
-            {/* Animated border effect */}
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-deepseek-blue via-deepseek-cyan to-deepseek-electric opacity-30 animate-pulse"></div>
-            <div className="absolute inset-0.5 bg-deepseek-gray-800 rounded-lg"></div>
-            
-            {/* Content */}
-            <div className="relative flex flex-col items-center space-y-3">
-              <div className="text-center">
-                <h3 className="text-sm font-medium text-deepseek-gray-300 mb-1">AI Assistant</h3>
-                <div className="w-12 h-0.5 bg-gradient-to-r from-deepseek-blue to-deepseek-cyan rounded-full mx-auto"></div>
-              </div>
-              
-              <div className="relative group">
-                <img 
-                  src="https://i.postimg.cc/02SJZjQ7/AI-IMAGE.webp" 
-                  alt="AI Assistant" 
-                  className="w-48 h-48 object-cover rounded-xl shadow-2xl border-2 border-deepseek-gray-600 transition-all duration-300 group-hover:scale-105 group-hover:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
-                />
-                
-                
-                {/* Glowing effect on hover */}
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-deepseek-cyan/20 to-deepseek-electric/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                
-                {/* Status indicator */}
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-deepseek-cyan to-deepseek-electric rounded-full border-2 border-deepseek-gray-800 animate-pulse"></div>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-xs text-deepseek-gray-400 font-mono">
-                  Ready to assist you
-                </p>
-                <div className="flex items-center justify-center space-x-1 mt-1">
-                  <div className="w-1 h-1 bg-deepseek-electric rounded-full animate-pulse"></div>
-                  <div className="w-1 h-1 bg-deepseek-cyan rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                  <div className="w-1 h-1 bg-deepseek-blue rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Output Section(s) */}
@@ -310,47 +273,54 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
           </div>
         )}
 
-        {viewMode === 'comparison' && Object.keys(responses).length > 0 && (
-          <>
-            {selectedModels.map((modelValue) => {
-              const model = models.find(m => m.value === modelValue);
-              const response = responses[modelValue];
-              
-              return (
-                <div key={modelValue} className="flex flex-col">
-                  <div className="bg-deepseek-gray-800 rounded-lg p-4 border border-deepseek-gray-600 flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-deepseek-gray-300">
-                        {model?.label || modelValue}
-                      </label>
-                      {response?.isLoading && (
-                        <Loader2 className="h-4 w-4 animate-spin text-deepseek-electric" />
-                      )}
-                    </div>
-                    <div className="bg-deepseek-dark rounded p-4 min-h-[300px] border border-deepseek-gray-700 overflow-auto">
-                      {response?.content ? (
-                        <pre className="whitespace-pre-wrap text-white font-mono text-sm">
-                          {response.content}
-                        </pre>
-                      ) : response?.error ? (
-                        <div className="text-red-400 text-sm">
-                          Error: {response.error}
-                        </div>
-                      ) : response?.isLoading ? (
-                        <div className="text-deepseek-gray-500 italic">
-                          Generating response...
-                        </div>
-                      ) : (
-                        <div className="text-deepseek-gray-500 italic">
-                          Response will appear here...
-                        </div>
-                      )}
+        {/* Comparison View */}
+        {viewMode === 'comparison' && (
+          <div className="col-span-full">
+            <div className={`grid gap-4 ${
+              selectedModels.length === 1 ? 'grid-cols-1' :
+              selectedModels.length === 2 ? 'grid-cols-1 lg:grid-cols-2' :
+              'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3'
+            }`}>
+              {selectedModels.map((modelValue) => {
+                const model = models.find(m => m.value === modelValue);
+                const response = responses[modelValue];
+                
+                return (
+                  <div key={modelValue} className="flex flex-col">
+                    <div className="bg-deepseek-gray-800 rounded-lg p-4 border border-deepseek-gray-600 flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-deepseek-gray-300">
+                          {model?.label || modelValue}
+                        </label>
+                        {response?.isLoading && (
+                          <Loader2 className="h-4 w-4 animate-spin text-deepseek-electric" />
+                        )}
+                      </div>
+                      <div className="bg-deepseek-dark rounded p-4 min-h-[300px] border border-deepseek-gray-700 overflow-auto">
+                        {response?.content ? (
+                          <pre className="whitespace-pre-wrap text-white font-mono text-sm">
+                            {response.content}
+                          </pre>
+                        ) : response?.error ? (
+                          <div className="text-red-400 text-sm">
+                            Error: {response.error}
+                          </div>
+                        ) : response?.isLoading ? (
+                          <div className="text-deepseek-gray-500 italic">
+                            Generating response...
+                          </div>
+                        ) : (
+                          <div className="text-deepseek-gray-500 italic">
+                            Response will appear here...
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
     </div>

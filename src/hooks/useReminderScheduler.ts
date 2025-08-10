@@ -66,12 +66,21 @@ export function useReminderScheduler(reminders: Reminder[], opts?: { tts?: boole
     } catch {}
   };
 
+  const playAlarm = () => {
+    try {
+      const audio = new Audio('/sounds/reminder.ogg');
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch {}
+  };
+
   const notify = (title: string, body: string) => {
     if (permission === "granted") {
       try {
         new Notification(title, { body });
       } catch {}
     }
+    playAlarm();
     speak(body);
     toast.info(body);
   };

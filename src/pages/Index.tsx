@@ -7,6 +7,7 @@ import { ImageGenerator } from "@/components/ImageGenerator";
 import { VisionAnalyzer } from "@/components/VisionAnalyzer";
 import { DocumentAnalyzer } from "@/components/DocumentAnalyzer";
 import { StatusPanel } from "@/components/StatusPanel";
+import { Reminders } from "@/components/Reminders/Reminders";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("chat");
@@ -23,6 +24,8 @@ const Index = () => {
         return <VisionAnalyzer />;
       case "documents":
         return <DocumentAnalyzer />;
+      case "reminders":
+        return <Reminders />;
       default:
         return <ChatInterface currentModel={currentModel} setCurrentModel={setCurrentModel} />;
     }

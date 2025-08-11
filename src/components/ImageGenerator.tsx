@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { Image as ImageIcon, Loader2, Download, Edit, Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ImageEditor } from "./ImageEditor";
 import { pipeline, env } from '@huggingface/transformers';
@@ -18,6 +20,11 @@ export const ImageGenerator = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [backgroundPrompt, setBackgroundPrompt] = useState("");
   const [isProcessingBackground, setIsProcessingBackground] = useState(false);
+  const [backgroundUrl, setBackgroundUrl] = useState("");
+  const [backgroundOpacity, setBackgroundOpacity] = useState(1);
+  const [backgroundBlur, setBackgroundBlur] = useState(0);
+  const [backgroundFilter, setBackgroundFilter] = useState("");
+  const [backgroundUrlList, setBackgroundUrlList] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleGenerate = async () => {
@@ -185,6 +192,112 @@ export const ImageGenerator = () => {
     }
   };
 
+  const pickRandomBackgroundFromList = () => {
+    const urls = backgroundUrlList
+      .split(/\r?\n/)
+      .map((u) => u.trim())
+      .filter(Boolean);
+    if (urls.length === 0) {
+      toast.error("Add at least one URL in the list");
+      return;
+    }
+    const chosen = urls[Math.floor(Math.random() * urls.length)];
+    setBackgroundUrl(chosen);
+    toast.success("Random background selected");
+  };
+
+  const handleBackgroundReplaceWithUrl = async () => {
+    if (!uploadedImage || !backgroundUrl.trim()) {
+      toast.error("Please upload an image and enter a background image URL");
+      return;
+    }
+
+    setIsProcessingBackground(true);
+    try {
+      // Load the segmentation model
+      const segmenter = await pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', {
+        device: 'wasm',
+      });
+
+      // Load uploaded image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve as any;
+        img.onerror = reject as any;
+        img.src = uploadedImage;
+      });
+
+      // Load background image from URL
+      const bgImg = new Image();
+      bgImg.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        bgImg.onload = resolve as any;
+        bgImg.onerror = reject as any;
+        bgImg.src = backgroundUrl;
+      });
+
+      // Run segmentation
+      const result = await segmenter(uploadedImage);
+      if (!result || !Array.isArray(result) || result.length === 0) {
+        throw new Error('Failed to segment image');
+      }
+
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not get canvas context');
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      // Draw background with filters and opacity
+      ctx.save();
+      ctx.filter = backgroundFilter.trim()
+        ? backgroundFilter
+        : (backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : 'none');
+      ctx.globalAlpha = Math.min(1, Math.max(0, backgroundOpacity));
+      ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      // Prepare subject with alpha mask
+      const subjectCanvas = document.createElement('canvas');
+      const subjectCtx = subjectCanvas.getContext('2d');
+      if (!subjectCtx) throw new Error('Could not get subject canvas context');
+      subjectCanvas.width = img.width;
+      subjectCanvas.height = img.height;
+      subjectCtx.drawImage(img, 0, 0);
+
+      const imageData = subjectCtx.getImageData(0, 0, subjectCanvas.width, subjectCanvas.height);
+      const data = imageData.data;
+      const mask = result[0].mask;
+      for (let i = 0; i < mask.data.length; i++) {
+        const maskValue = mask.data[i];
+        let alpha = (1 - maskValue) * 255;
+        if (alpha < 50) alpha = 0;
+        else if (alpha > 200) alpha = 255;
+        data[i * 4 + 3] = Math.round(alpha);
+      }
+      subjectCtx.putImageData(imageData, 0, 0);
+
+      // Composite subject on background
+      ctx.drawImage(subjectCanvas, 0, 0);
+
+      // Output
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          setGeneratedImage(url);
+          toast.success('Background replaced using URL');
+        }
+      }, 'image/png');
+    } catch (error) {
+      console.error('Error replacing background with URL:', error);
+      toast.error('Failed to use background URL. Ensure it is a direct image link and allows CORS.');
+    } finally {
+      setIsProcessingBackground(false);
+    }
+  };
+
   const handleDownload = async () => {
     if (!generatedImage) return;
 
@@ -325,6 +438,95 @@ export const ImageGenerator = () => {
                   </Button>
                 </div>
               )}
+            </div>
+            
+            <div className="mt-6 border-t border-deepseek-gray-700 pt-4 space-y-4">
+              <label className="block text-sm font-medium text-deepseek-gray-300">
+                Or use a Background Image URL:
+              </label>
+              <Input
+                value={backgroundUrl}
+                onChange={(e) => setBackgroundUrl(e.target.value)}
+                placeholder="https://your-image-host.com/background.jpg"
+                className="bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500"
+                disabled={isProcessingBackground}
+              />
+              <p className="text-xs text-deepseek-gray-400">
+                Use a direct image link (jpg, png, gif). For reliability, upload to a stable host and use the direct URL. The image must allow CORS.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between text-xs text-deepseek-gray-400 mb-2">
+                    <span>Opacity</span>
+                    <span>{Math.round(backgroundOpacity * 100)}%</span>
+                  </div>
+                  <Slider
+                    value={[backgroundOpacity]}
+                    onValueChange={(v) => setBackgroundOpacity((v[0] as number) ?? 1)}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs text-deepseek-gray-400 mb-2">
+                    <span>Blur</span>
+                    <span>{backgroundBlur}px</span>
+                  </div>
+                  <Slider
+                    value={[backgroundBlur]}
+                    onValueChange={(v) => setBackgroundBlur((v[0] as number) ?? 0)}
+                    min={0}
+                    max={20}
+                    step={1}
+                  />
+                </div>
+              </div>
+
+              <Input
+                value={backgroundFilter}
+                onChange={(e) => setBackgroundFilter(e.target.value)}
+                placeholder='Optional CSS filter: e.g. blur(3px) hue-rotate(30deg) saturate(1.6)'
+                className="bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500"
+                disabled={isProcessingBackground}
+              />
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-deepseek-gray-300">Background URL list (one per line)</label>
+                <Textarea
+                  value={backgroundUrlList}
+                  onChange={(e) => setBackgroundUrlList(e.target.value)}
+                  placeholder={"https://example.com/one.jpg\nhttps://example.com/two.png"}
+                  className="bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500 min-h-24"
+                  disabled={isProcessingBackground}
+                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={pickRandomBackgroundFromList}
+                    disabled={isProcessingBackground}
+                    className="bg-deepseek-gray-700 border-deepseek-gray-600 text-white hover:bg-deepseek-gray-600"
+                  >
+                    Pick Random URL
+                  </Button>
+                  <Button
+                    onClick={handleBackgroundReplaceWithUrl}
+                    disabled={isProcessingBackground || !backgroundUrl.trim()}
+                    className="bg-gradient-to-r from-deepseek-blue to-deepseek-cyan hover:from-deepseek-cyan hover:to-deepseek-blue text-white font-medium"
+                  >
+                    {isProcessingBackground ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Applying URL...
+                      </>
+                    ) : (
+                      <>Replace Using Image URL</>
+                    )}
+                  </Button>
+                </div>
+              </div>
             </div>
             
             <div className="mt-4 text-xs text-deepseek-gray-400">

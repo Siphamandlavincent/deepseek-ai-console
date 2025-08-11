@@ -345,14 +345,34 @@ export const ImageEditor = ({ imageUrl, onClose }: ImageEditorProps) => {
       <div className="bg-deepseek-gray-800 rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">Image Editor</h3>
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-deepseek-gray-700"
-          >
-            ✕
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => {
+                const target = editedImage ?? imageUrl;
+                const extMatch = target.split('.').pop()?.split('?')[0].toLowerCase();
+                const ext = extMatch && extMatch.length <= 4 ? extMatch : 'png';
+                const name = editedImage ? `edited-image-${Date.now()}.${ext}` : `original-image-${Date.now()}.${ext}`;
+                handleDownload(target, name);
+              }}
+              variant="outline"
+              size="sm"
+              className="text-white bg-deepseek-gray-700 border-deepseek-gray-600 hover:bg-deepseek-gray-600"
+              disabled={isProcessing}
+              aria-label="Download image"
+              title="Download image"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-deepseek-gray-700"
+            >
+              ✕
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">

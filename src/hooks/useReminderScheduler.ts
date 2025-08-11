@@ -66,11 +66,58 @@ export function useReminderScheduler(reminders: Reminder[], opts?: { tts?: boole
     } catch {}
   };
 
-  const playAlarm = () => {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const alertActiveRef = useRef(false);
+
+  const startAlert = (text: string) => {
+    alertActiveRef.current = true;
+    // Looping alarm sound
     try {
-      const audio = new Audio('/sounds/reminder.ogg');
-      audio.currentTime = 0;
-      audio.play().catch(() => {});
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/sounds/reminder.ogg');
+        audioRef.current.loop = true;
+      }
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+    } catch {}
+
+    // Looping TTS
+    try {
+      if (enableTTS && 'speechSynthesis' in window) {
+        const synth = window.speechSynthesis;
+        if (synth.speaking) synth.cancel();
+        const speakLoop = () => {
+          if (!alertActiveRef.current) return;
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.rate = 1.0;
+          utter.pitch = 1.0;
+          utter.onend = () => {
+            if (alertActiveRef.current) setTimeout(speakLoop, 1000);
+          };
+          try {
+            synth.speak(utter);
+          } catch {}
+        };
+        speakLoop();
+      }
+    } catch {}
+  };
+
+  const stopAlert = () => {
+    alertActiveRef.current = false;
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    } catch {}
+    try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    } catch {}
+    try {
+      toast.dismiss();
     } catch {}
   };
 
@@ -80,9 +127,15 @@ export function useReminderScheduler(reminders: Reminder[], opts?: { tts?: boole
         new Notification(title, { body });
       } catch {}
     }
-    playAlarm();
-    speak(body);
-    toast.info(body);
+    startAlert(body);
+    toast(`${title}`, {
+      description: body,
+      duration: Infinity,
+      action: {
+        label: 'Stop',
+        onClick: () => stopAlert(),
+      },
+    });
   };
 
   const schedule = (reminder: Reminder) => {
@@ -118,5 +171,5 @@ export function useReminderScheduler(reminders: Reminder[], opts?: { tts?: boole
     return perm;
   };
 
-  return { requestPermission, permission };
+  return { requestPermission, permission, stopAlert };
 }

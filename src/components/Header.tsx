@@ -1,7 +1,13 @@
-
+import { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
-
 export const Header = () => {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const timeString = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
   return (
     <header className="bg-deepseek-darker border-b border-deepseek-gray-700 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -22,7 +28,11 @@ export const Header = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">The G-Spot</h1>
-            <p className="text-sm text-deepseek-gray-300">Great Spot for AI Development • Created by SPHAh</p>
+            <p className="text-sm text-deepseek-gray-300 flex items-center gap-2">
+              <span>Great Spot for AI Development • Created by SPHAh</span>
+              <span className="h-1 w-1 rounded-full bg-deepseek-gray-600" aria-hidden="true"></span>
+              <time dateTime={time.toISOString()} className="font-semibold text-deepseek-electric">{timeString}</time>
+            </p>
           </div>
         </div>
         

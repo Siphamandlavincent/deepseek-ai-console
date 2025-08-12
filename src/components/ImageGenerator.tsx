@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ImageEditor } from "./ImageEditor";
+import FlatAvatarGenerator from "./FlatAvatarGenerator";
 import { pipeline, env } from '@huggingface/transformers';
 
 // Configure transformers.js
@@ -533,6 +534,8 @@ export const ImageGenerator = () => {
               Upload an image and describe the background you want. AI will automatically remove the current background and add your desired one.
             </div>
           </div>
+
+          <FlatAvatarGenerator onApply={(dataUrl) => { setGeneratedImage(dataUrl); toast.success("Avatar generated"); }} />
         </div>
 
         {/* Output Section */}

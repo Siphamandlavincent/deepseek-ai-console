@@ -1,10 +1,12 @@
 
-import { useState } from "react";
-import { Send, Loader2, Grid, List } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Send, Loader2, Grid, List, Volume2, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 interface ChatInterfaceProps {
@@ -18,6 +20,96 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModels, setSelectedModels] = useState<string[]>(["Llama-4-Maverick-17B-128E-Instruct"]);
   const [viewMode, setViewMode] = useState<'single' | 'comparison'>('single');
+
+  // Text-to-Speech state and setup
+  const [ttsLang, setTtsLang] = useState("en-US");
+  const [ttsPitch, setTtsPitch] = useState(1);
+  const [ttsRate, setTtsRate] = useState(1);
+  const [ttsDelay, setTtsDelay] = useState(0);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const loadVoices = () => {
+      voicesRef.current = window.speechSynthesis.getVoices();
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices as any;
+    return () => {
+      (window.speechSynthesis as any).onvoiceschanged = null;
+    };
+  }, []);
+
+  const getVoiceForLang = (lang: string) => {
+    const voices = voicesRef.current;
+    const exact = voices.find(v => v.lang === lang);
+    if (exact) return exact;
+    const partial = voices.find(v => v.lang?.startsWith(lang.split("-")[0]));
+    return partial || voices[0];
+  };
+
+  const speakText = (text: string, opts?: { lang?: string; pitch?: number; rate?: number; delay?: number }) => {
+    return new Promise<void>((resolve, reject) => {
+      if (!("speechSynthesis" in window)) {
+        toast.error("Text-to-Speech is not supported in this browser.");
+        return reject(new Error("Speech synthesis unsupported"));
+      }
+      try {
+        const { lang = ttsLang, pitch = ttsPitch, rate = ttsRate, delay = ttsDelay } = opts || {};
+        const start = () => {
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = lang;
+          utter.pitch = pitch;
+          utter.rate = rate;
+          const voice = getVoiceForLang(lang);
+          if (voice) utter.voice = voice;
+          utteranceRef.current = utter;
+          setIsSpeaking(true);
+          utter.onend = () => {
+            setIsSpeaking(false);
+            resolve();
+          };
+          utter.onerror = (e) => {
+            setIsSpeaking(false);
+            reject((e as any).error || new Error("TTS error"));
+          };
+          window.speechSynthesis.speak(utter);
+        };
+        if (delay && delay > 0) {
+          timeoutRef.current = window.setTimeout(start, delay * 1000);
+        } else {
+          start();
+        }
+      } catch (e) {
+        setIsSpeaking(false);
+        reject(e);
+      }
+    });
+  };
+
+  const stopSpeaking = () => {
+    if (!("speechSynthesis" in window)) return;
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  };
+
+  const handleSpeakResponses = async () => {
+    const texts = Object.values(responses).map(r => r.content).filter(Boolean);
+    if (texts.length === 0) {
+      toast.info("No response to speak yet.");
+      return;
+    }
+    await speakText(texts.join("\n\n"));
+  };
 
   const models = [
     { value: "Llama-4-Maverick-17B-128E-Instruct", label: "Llama-4-Maverick-17B (SambaNova)" },
@@ -240,6 +332,110 @@ export const ChatInterface = ({ currentModel, setCurrentModel }: ChatInterfacePr
               </>
             )}
           </Button>
+
+          {/* Text-to-Speech Controls */}
+          <div className="bg-deepseek-gray-800 rounded-lg p-4 border border-deepseek-gray-600 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-deepseek-gray-300">Text-to-Speech</h4>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSpeakResponses}
+                  disabled={isSpeaking}
+                  className="bg-deepseek-gray-800 border-deepseek-gray-600 text-white hover:bg-deepseek-gray-700"
+                >
+                  <Volume2 className="h-4 w-4 mr-2" /> Speak Responses
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={stopSpeaking}
+                  disabled={!isSpeaking}
+                  className="text-white hover:bg-deepseek-gray-700"
+                >
+                  <Square className="h-4 w-4 mr-2" /> Stop
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="tts-lang" className="text-deepseek-gray-300 text-xs">Voice</Label>
+                <Select value={ttsLang} onValueChange={setTtsLang}>
+                  <SelectTrigger id="tts-lang" className="bg-deepseek-dark border-deepseek-gray-600 text-white">
+                    <SelectValue placeholder="Select voice" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-deepseek-gray-800 border-deepseek-gray-600 text-white">
+                    <SelectItem value="en-US">English (US)</SelectItem>
+                    <SelectItem value="en-GB">English (UK)</SelectItem>
+                    <SelectItem value="es-ES">Spanish (ES)</SelectItem>
+                    <SelectItem value="es-US">Spanish (US)</SelectItem>
+                    <SelectItem value="fr-FR">French</SelectItem>
+                    <SelectItem value="de-DE">German</SelectItem>
+                    <SelectItem value="hi-IN">Hindi</SelectItem>
+                    <SelectItem value="id-ID">Indonesian</SelectItem>
+                    <SelectItem value="it-IT">Italian</SelectItem>
+                    <SelectItem value="ja-JP">Japanese</SelectItem>
+                    <SelectItem value="ko-KR">Korean</SelectItem>
+                    <SelectItem value="nl-NL">Dutch</SelectItem>
+                    <SelectItem value="pl-PL">Polish</SelectItem>
+                    <SelectItem value="pt-BR">Portuguese (BR)</SelectItem>
+                    <SelectItem value="ru-RU">Russian</SelectItem>
+                    <SelectItem value="zh-CN">Chinese (CN)</SelectItem>
+                    <SelectItem value="zh-HK">Chinese (HK)</SelectItem>
+                    <SelectItem value="zh-TW">Chinese (TW)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="tts-pitch" className="text-deepseek-gray-300 text-xs">Pitch</Label>
+                <Input
+                  id="tts-pitch"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="2"
+                  value={ttsPitch}
+                  onChange={(e) => setTtsPitch(Number(e.target.value))}
+                  className="bg-deepseek-dark border-deepseek-gray-600 text-white"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="tts-rate" className="text-deepseek-gray-300 text-xs">Speed</Label>
+                <Input
+                  id="tts-rate"
+                  type="number"
+                  step="0.1"
+                  min="0.5"
+                  max="2"
+                  value={ttsRate}
+                  onChange={(e) => setTtsRate(Number(e.target.value))}
+                  className="bg-deepseek-dark border-deepseek-gray-600 text-white"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="tts-delay" className="text-deepseek-gray-300 text-xs">Delay (s)</Label>
+                <Input
+                  id="tts-delay"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="30"
+                  value={ttsDelay}
+                  onChange={(e) => setTtsDelay(Number(e.target.value))}
+                  className="bg-deepseek-dark border-deepseek-gray-600 text-white"
+                />
+              </div>
+            </div>
+
+            <p className="text-xs text-deepseek-gray-400">Tip: Voices differ by browser; try another browser if a voice sounds different.</p>
+          </div>
         </div>
 
         {/* Output Section(s) */}

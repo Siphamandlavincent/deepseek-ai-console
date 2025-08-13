@@ -1,8 +1,9 @@
 
 import { useState } from "react";
-import { FileText, Upload, Loader2, X, MessageSquare } from "lucide-react";
+import { FileText, Upload, Loader2, X, MessageSquare, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 interface UploadedFile {
@@ -11,7 +12,8 @@ interface UploadedFile {
   type: string;
   size: number;
   content: string;
-  file: File;
+  file?: File;
+  url?: string;
 }
 
 export const DocumentAnalyzer = () => {
@@ -20,6 +22,8 @@ export const DocumentAnalyzer = () => {
   const [response, setResponse] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -91,6 +95,70 @@ export const DocumentAnalyzer = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const fetchUrlContent = async () => {
+    if (!urlInput.trim()) {
+      toast.error("Please enter a URL");
+      return;
+    }
+
+    if (uploadedFiles.length >= 3) {
+      toast.error("Maximum 3 files allowed");
+      return;
+    }
+
+    setIsFetching(true);
+
+    try {
+      // Use a CORS proxy service to bypass CORS restrictions
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(urlInput)}`;
+      
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch URL: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.contents;
+
+      // Extract readable content using a simple text extraction
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(content, 'text/html');
+      
+      // Remove script and style elements
+      const scripts = doc.querySelectorAll('script, style');
+      scripts.forEach(el => el.remove());
+      
+      // Extract text content
+      const textContent = doc.body?.textContent || doc.textContent || '';
+      const cleanContent = textContent.replace(/\s+/g, ' ').trim();
+
+      if (!cleanContent) {
+        throw new Error("No readable content found on the webpage");
+      }
+
+      const urlObject = new URL(urlInput);
+      const fileName = urlObject.hostname + urlObject.pathname.replace(/\//g, '_') || 'webpage';
+
+      const newFile: UploadedFile = {
+        id: Date.now().toString() + Math.random().toString(),
+        name: `${fileName}.txt`,
+        type: 'text/plain',
+        size: cleanContent.length,
+        content: cleanContent,
+        url: urlInput
+      };
+
+      setUploadedFiles(prev => [...prev, newFile]);
+      setUrlInput("");
+      toast.success(`Content fetched from ${urlObject.hostname}`);
+    } catch (error) {
+      console.error("Error fetching URL:", error);
+      toast.error(`Failed to fetch URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
   const analyzeDocuments = async () => {
     if (!question.trim()) {
       toast.error("Please enter a question");
@@ -98,7 +166,7 @@ export const DocumentAnalyzer = () => {
     }
 
     if (uploadedFiles.length === 0) {
-      toast.error("Please upload at least one document");
+      toast.error("Please upload at least one document or fetch a URL");
       return;
     }
 
@@ -120,6 +188,9 @@ export const DocumentAnalyzer = () => {
           documentContext += `[Image content will be analyzed]\n`;
         } else if (file.type === 'application/pdf') {
           documentContext += `[PDF content will be analyzed]\n`;
+        } else if (file.type === 'text/plain' && file.url) {
+          documentContext += `Source URL: ${file.url}\n`;
+          documentContext += `Content: ${file.content.substring(0, 2000)}${file.content.length > 2000 ? '...' : ''}\n`;
         }
         documentContext += "\n";
       });
@@ -235,30 +306,55 @@ Instructions:
               <label className="block text-sm font-medium text-deepseek-gray-300 mb-2">
                 Upload Documents ({uploadedFiles.length}/3)
               </label>
-              <div className="border-2 border-dashed border-deepseek-gray-600 rounded-lg p-6 text-center">
-                <input
-                  type="file"
-                  multiple
-                  accept=".pdf,image/*"
-                  onChange={handleFileUpload}
-                  disabled={isUploading || uploadedFiles.length >= 3}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <label
-                  htmlFor="file-upload"
-                  className={`cursor-pointer flex flex-col items-center space-y-2 ${
-                    uploadedFiles.length >= 3 ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <Upload className="h-8 w-8 text-deepseek-gray-400" />
-                  <span className="text-deepseek-gray-300">
-                    {isUploading ? 'Uploading...' : 'Click to upload PDFs or images'}
-                  </span>
-                  <span className="text-xs text-deepseek-gray-500">
-                    Max 500MB per file, 3 files total
-                  </span>
-                </label>
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-deepseek-gray-600 rounded-lg p-6 text-center">
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,image/*"
+                    onChange={handleFileUpload}
+                    disabled={isUploading || uploadedFiles.length >= 3}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className={`cursor-pointer flex flex-col items-center space-y-2 ${
+                      uploadedFiles.length >= 3 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <Upload className="h-8 w-8 text-deepseek-gray-400" />
+                    <span className="text-deepseek-gray-300">
+                      {isUploading ? 'Uploading...' : 'Click to upload PDFs or images'}
+                    </span>
+                    <span className="text-xs text-deepseek-gray-500">
+                      Max 500MB per file, 3 files total
+                    </span>
+                  </label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1">
+                    <Input
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      placeholder="Enter URL to fetch web content (bypasses CORS)"
+                      className="bg-deepseek-dark border-deepseek-gray-600 text-white placeholder:text-deepseek-gray-500"
+                      disabled={isFetching || uploadedFiles.length >= 3}
+                    />
+                  </div>
+                  <Button
+                    onClick={fetchUrlContent}
+                    disabled={isFetching || !urlInput.trim() || uploadedFiles.length >= 3}
+                    className="bg-deepseek-electric hover:bg-deepseek-cyan text-white"
+                  >
+                    {isFetching ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Globe className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -273,11 +369,15 @@ Instructions:
                     className="flex items-center justify-between bg-deepseek-dark rounded p-3 border border-deepseek-gray-700"
                   >
                     <div className="flex items-center space-x-3">
-                      <FileText className="h-4 w-4 text-deepseek-electric" />
+                      {file.url ? (
+                        <Globe className="h-4 w-4 text-deepseek-electric" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-deepseek-electric" />
+                      )}
                       <div>
                         <div className="text-white text-sm font-medium">{file.name}</div>
                         <div className="text-deepseek-gray-400 text-xs">
-                          {formatFileSize(file.size)}
+                          {file.url ? `URL: ${file.url}` : formatFileSize(file.size)}
                         </div>
                       </div>
                     </div>

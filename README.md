@@ -1,8 +1,8 @@
-# The G-Spot - AI Development Platform
+# The IZIGI ZE AFRICA - AI Development Platform
 
 ![The G-Spot Logo](https://i.postimg.cc/pX7F0BW0/Spha-Apps-Logo.png)
 
-**The G-Spot** (Great Spot for AI Development) is a comprehensive AI-powered platform that integrates multiple AI capabilities including chat, image generation, vision analysis, and document processing. Created by SPHAh, this application leverages modern web technologies to provide a seamless AI experience.
+**The IZIGI ZE AFRICA** (Great Spot for AI Development) is a comprehensive AI-powered platform that integrates multiple AI capabilities including chat, image generation, vision analysis, and document processing. Created by SPHAh, this application leverages modern web technologies to provide a seamless AI experience.
 
 ## 🌟 Features
 
